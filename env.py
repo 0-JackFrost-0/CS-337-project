@@ -1,150 +1,144 @@
-im
+from copy import deepcopy
+
+import gymnasium as gym
+import numpy as np
+import pandas as pd
+from gymnasium import spaces
+
+# Constants
+WINDOW_SIZE = 0
+INITIAL_BALANCE = 10000
+TRADING_FEE = 0.01
+MAX_MOVE = 200
+INIT_SHARES = 0
 
 
-class TradingEnvironment():
-
-    def __init__(self, starting_cash_mean=200., max_stride=5, series_length=208, starting_point=1, randomize_cash_std=0, \
-                 starting_shares_mean=0., randomize_shares_std=0., inaction_penalty=0.):
-        self.starting_shares_mean = starting_shares_mean
-        self.randomize_shares_std = randomize_shares_std
-        self.starting_cash_mean = starting_cash_mean
-        self.randomize_cash_std = randomize_cash_std
-        
-        self.state = torch.FloatTensor(torch.zeros(8)).cuda()
-        
-        self.starting_cash = max(int(np.random.normal(self.starting_cash_mean, self.randomize_cash_std)), 0.)
-        
-        self.series_length = series_length
-        self.starting_point = starting_point
-        self.cur_timestep = self.starting_point
-        
-        self.state[0] = max(int(np.random.normal(self.starting_shares_mean, self.randomize_shares_std)), 0.)
-        self.state[1] = max(int(np.random.normal(self.starting_shares_mean, self.randomize_shares_std)), 0.)
-        self.starting_portfolio_value = self.portfolio_value()
-        self.state[2] = self.starting_cash
-        self.state[3] = apl_open[self.cur_timestep]
-        self.state[4] = msf_open[self.cur_timestep]
-        self.state[5] = self.starting_portfolio_value
-        self.state[6] = self.five_day_window()[0]
-        self.state[7] = self.five_day_window()[1]
-        
-        self.max_stride = max_stride
-        self.stride = self.max_stride # no longer varying it
-        
+class TradingEnv(gym.Env):
+    def __init__(self, data: pd.DataFrame):
+        super(TradingEnv, self).__init__()
+        self.data = data
+        self.initial_balance = INITIAL_BALANCE
+        self.balance = self.initial_balance
+        self.position = INIT_SHARES  # Number of stocks held
+        self.current_step = 0
         self.done = False
-        self.diversification_bonus = 1.
-        self.inaction_penalty = inaction_penalty
-    
-    def portfolio_value(self):
-        return (self.state[0] * apl_close[self.cur_timestep]) + (self.state[1] * msf_close[self.cur_timestep]) + self.state[2]
-    
-    def next_opening_price(self):
-        step = self.cur_timestep + self.stride
-        return [apl_open[step], msf_open[step]]
-    
-    def five_day_window(self):
-        step = self.cur_timestep
-        if step < 5:
-            return [apl_open[0], msf_open[0]]
-        apl5 = apl_open[step-5:step].mean()
-        msf5 = msf_open[step-5:step].mean()
-        return [apl5, msf5]
-    
+        self.portfolio_value = self.balance
+        self.portfolio_value_history = [self.portfolio_value]
+        self.action = 0
+        self.action_space = spaces.Box(
+            low=-1, high=1, shape=(1,), dtype=np.float32)
+
+        dict = {}
+        self.dummy_data = deepcopy(self.data)
+        self.dummy_data.drop(columns=["date", 'day', 'tic'], inplace=True)
+        for column in self.dummy_data.columns:
+            dict[column] = spaces.Box(
+                low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
+        dict["balance"] = spaces.Box(
+            low=0, high=np.inf, shape=(1,), dtype=np.float32)
+        dict["position"] = spaces.Box(
+            low=0, high=np.inf, shape=(1,), dtype=np.int32)
+        dict["portfolio_value"] = spaces.Box(
+            low=0, high=np.inf, shape=(1,), dtype=np.float32)
+        dict["prev_action"] = spaces.Box(
+            low=-1, high=1, shape=(1,), dtype=np.float32)
+
+        self.observation_space = spaces.Dict(dict)
+
+    def reset(self, seed=None):
+        self.balance = self.initial_balance
+        self.position = 0
+        self.current_step = 0
+        self.done = False
+        self.portfolio_value = self.balance
+        next_observation = self._next_observation()
+        info = self._next_info()
+        return next_observation, info
+
+    def buy(self, action):
+        current_price = self.data.iloc[self.current_step]["close"]
+        amount_to_buy = min(np.floor(MAX_MOVE * action),
+                            self.balance//current_price)
+        trading_fee = amount_to_buy * current_price * TRADING_FEE
+        self.position += amount_to_buy
+        self.balance -= amount_to_buy * current_price + trading_fee
+
+    def sell(self, action):
+        action = -action
+        current_price = self.data.iloc[self.current_step]["close"]
+        amount_to_sell = min(np.floor(MAX_MOVE * action), self.position)
+        trading_fee = amount_to_sell * current_price * TRADING_FEE
+        self.balance += amount_to_sell * current_price - trading_fee
+        self.position -= amount_to_sell
+
+    def calculate_portfolio_value(self, current_price):
+        return self.balance + self.position * current_price
+
     def step(self, action):
-        action = [action, 1.]
-        cur_timestep = self.cur_timestep
-        ts_left = self.series_length - (cur_timestep - self.starting_point)
-        retval = None
-        cur_value = self.portfolio_value()
-        gain = cur_value - self.starting_portfolio_value
-        
-        if cur_timestep >= self.starting_point + (self.series_length * self.stride):
-            new_state = [self.state[0], self.state[1], self.state[2], *self.next_opening_price(), \
-                        cur_value, *self.five_day_window()]
-            self.state = new_state
-            bonus = 0.
-            if self.state[0] > 0 and self.state[1] > 0:
-                bonus = self.diversification_bonus
-            return new_state, cur_value + bonus + gain, True, { "msg": "done"}
-        
-        if action[0] == 2:
-            new_state = [self.state[0], self.state[1], self.state[2], *self.next_opening_price(), \
-                    cur_value, *self.five_day_window()]
-            self.state = new_state
-            retval = new_state, -self.inaction_penalty-ts_left +gain, False, { "msg": "nothing" }
-            
-        if action[0] == 0:
-            if action[1] * apl_open[cur_timestep] > self.state[2]:
-                new_state = [self.state[0], self.state[1], self.state[2], *self.next_opening_price(), \
-                        cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, -ts_left+gain/2, True, { "msg": "bankrupted self"}
-            else:
-                apl_shares = self.state[0] + action[1]
-                cash_spent = action[1] * apl_open[cur_timestep] * 1.1
-                new_state = [apl_shares, self.state[1], self.state[2] - cash_spent, *self.next_opening_price(), \
-                       cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, self.inaction_penalty-ts_left+gain, False, { "msg": "bought AAPL"}
-                
-        if action[0] == 3:
-            if action[1] * msf_open[cur_timestep] > self.state[2]:
-                new_state = [self.state[0], self.state[1], self.state[2], *self.next_opening_price(), \
-                        cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval =  new_state, -ts_left+gain/2, True, { "msg": "bankrupted self"}
-            else:
-                msf_shares = self.state[1] + action[1]
-                cash_spent = action[1] * msf_open[cur_timestep] * 1.1
-                new_state = [self.state[0], msf_shares, self.state[2] - cash_spent, *self.next_opening_price(), \
-                       cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, self.inaction_penalty-ts_left+gain, False, { "msg": "bought MSFT"}
-        
+        self.action = action
+        current_price = self.data.iloc[self.current_step]["close"]
 
-        if action[0] == 1:
-            if action[1] > self.state[0]:
-                new_state = [self.state[0], self.state[1], self.state[2], *self.next_opening_price(), \
-                        cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, -ts_left+gain/2, True, { "msg": "sold more than have"}
-            else:
-                apl_shares = self.state[0] - action[1]
-                cash_gained = action[1] * apl_open[cur_timestep] * 0.9
-                new_state = [apl_shares, self.state[1], self.state[2] + cash_gained, *self.next_opening_price(), \
-                       cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, self.inaction_penalty-ts_left+gain, False, { "msg": "sold AAPL"}
-                
-        if action[0] == 4:
-            if action[1] > self.state[1]:
-                new_state = [self.state[0], self.state[1], self.state[2], *self.next_opening_price(), \
-                        cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, -ts_left+gain/2, True, { "msg": "sold more than have"}
-            else:
-                msf_shares = self.state[1] - action[1]
-                cash_gained = action[1] * msf_open[cur_timestep] * 0.9
-                new_state = [self.state[0], msf_shares, self.state[2] + cash_gained, *self.next_opening_price(), \
-                       cur_value, *self.five_day_window()]
-                self.state = new_state
-                retval = new_state, self.inaction_penalty-ts_left+gain, False, { "msg": "sold MSFT"}
-                
-        self.cur_timestep += self.stride
-        return retval
-    
-    def reset(self):
-        self.state = torch.FloatTensor(torch.zeros(8)).cuda()
-        self.starting_cash = max(int(np.random.normal(self.starting_cash_mean, self.randomize_cash_std)), 0.)
-        self.cur_timestep = self.starting_point
-        self.state[0] = max(int(np.random.normal(self.starting_shares_mean, self.randomize_shares_std)), 0.)
-        self.state[1] = max(int(np.random.normal(self.starting_shares_mean, self.randomize_shares_std)), 0.)
-        self.state[2] = self.starting_cash
-        self.state[3] = apl_open[self.cur_timestep]
-        self.state[4] = msf_open[self.cur_timestep]
-        self.starting_portfolio_value = self.portfolio_value()
-        self.state[5] = self.starting_portfolio_value
-        self.state[6] = self.five_day_window()[0]
-        self.state[7] = self.five_day_window()[1]       
-        self.done = False
-        return self.state
+        if action == 0:
+            pass
+        elif action > 0:
+            self.buy(action)
+        else:
+            self.sell(action)
+
+        self.portfolio_value = self.calculate_portfolio_value(current_price)
+        reward = self._get_reward()
+        self.portfolio_value_history.append(self.portfolio_value)
+        obs = self._next_observation()
+        info = self._next_info()
+        self.current_step += 1
+        self.done = self.current_step >= len(self.data) - 1
+        return obs, reward, self.done, False, info
+
+    def _next_observation(self):
+        obs = self.dummy_data.iloc[self.current_step]
+        obs = obs.to_dict()
+        obs["balance"] = self.balance
+        obs["position"] = self.position
+        obs["portfolio_value"] = self.portfolio_value
+        obs['prev_action'] = self.action
+        l = []
+        for k, v in obs.items():
+            l.append(v)
+        return l
+
+    def _next_info(self):
+        obs = self.dummy_data.iloc[self.current_step]
+        obs = obs.to_dict()
+        obs["balance"] = self.balance
+        obs["position"] = self.position
+        obs["portfolio_value"] = self.portfolio_value
+        obs['prev_action'] = self.action
+        obs['date'] = self.data.iloc[self.current_step]["date"]
+        return obs
+
+    def _get_reward(self):
+        portfolio_value_before = self.portfolio_value_history[-1]
+        reward = (self.portfolio_value - portfolio_value_before)
+        return reward
+
+    def render(self, mode='human', close=False):
+        pass
+
+    def close(self):
+        pass
+
+
+if __name__ == "__main__":
+    df = pd.read_csv("data/RELIANCE.NS.csv")
+    env = TradingEnv(df)
+
+    obs = env.reset()
+    done = False
+    while not done:
+        action = env.action_space.sample()
+        obs, reward, done, __, ___ = env.step(action)
+        print(obs)
+        print(reward)
+        print(done)
+        # print(info)
+        print()
