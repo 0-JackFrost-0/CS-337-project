@@ -15,7 +15,6 @@ def load_dataset(*, file_name: str) -> pd.DataFrame:
     load csv dataset from path
     :return: (df) pandas dataframe
     """
-    # _data = pd.read_csv(f"{config.DATASET_DIR}/{file_name}")
     _data = pd.read_csv(file_name)
     return _data
 
@@ -69,6 +68,9 @@ class FeatureEngineer:
         """
         # clean data
         df = self.clean_data(df)
+        # print(df.tic.unique())
+        # exit()
+        # return df
 
         # add technical indicators using stockstats
         if self.use_technical_indicator:
@@ -106,6 +108,10 @@ class FeatureEngineer:
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
         merged_closes = df.pivot_table(index="date", columns="tic", values="close")
+
+        ## ADDED OG ## 
+        merged_closes = merged_closes.interpolate(method='linear', axis=1)
+        
         merged_closes = merged_closes.dropna(axis=1)
         tics = merged_closes.columns
         df = df[df.tic.isin(tics)]
