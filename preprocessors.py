@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from stockstats import StockDataFrame as Sdf
 
-# from finrl import config
 from yahoodownloader import YahooDownloader
+
 
 def load_dataset(*, file_name: str) -> pd.DataFrame:
     """
@@ -41,16 +41,16 @@ class FeatureEngineer:
     def __init__(
         self,
         use_technical_indicator=True,
-        tech_indicator_list= [
-    "macd",
-    "boll_ub",
-    "boll_lb",
-    "rsi_30",
-    "cci_30",
-    "dx_30",
-    "close_30_sma",
-    "close_60_sma",
-],
+        tech_indicator_list=[
+            "macd",
+            "boll_ub",
+            "boll_lb",
+            "rsi_30",
+            "cci_30",
+            "dx_30",
+            "close_30_sma",
+            "close_60_sma",
+        ],
         use_vix=False,
         use_turbulence=False,
         user_defined_feature=False,
@@ -107,24 +107,15 @@ class FeatureEngineer:
         df = data.copy()
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
-        merged_closes = df.pivot_table(index="date", columns="tic", values="close")
+        merged_closes = df.pivot_table(
+            index="date", columns="tic", values="close")
 
-        ## ADDED OG ## 
+        ## ADDED OG ##
         # merged_closes = merged_closes.interpolate(method='linear', axis=1)
-        
+
         merged_closes = merged_closes.dropna(axis=1)
         tics = merged_closes.columns
         df = df[df.tic.isin(tics)]
-        # df = data.copy()
-        # list_ticker = df["tic"].unique().tolist()
-        # only apply to daily level data, need to fix for minute level
-        # list_date = list(pd.date_range(df['date'].min(),df['date'].max()).astype(str))
-        # combination = list(itertools.product(list_date,list_ticker))
-
-        # df_full = pd.DataFrame(combination,columns=["date","tic"]).merge(df,on=["date","tic"],how="left")
-        # df_full = df_full[df_full['date'].isin(df['date'])]
-        # df_full = df_full.sort_values(['date','tic'])
-        # df_full = df_full.fillna(0)
         return df
 
     def add_technical_indicator(self, data):
@@ -143,15 +134,13 @@ class FeatureEngineer:
             indicator_df = pd.DataFrame()
             for i in range(len(unique_ticker)):
                 try:
-                    temp_indicator = stock[stock.tic == unique_ticker[i]][indicator]
+                    temp_indicator = stock[stock.tic ==
+                                           unique_ticker[i]][indicator]
                     temp_indicator = pd.DataFrame(temp_indicator)
                     temp_indicator["tic"] = unique_ticker[i]
                     temp_indicator["date"] = df[df.tic == unique_ticker[i]][
                         "date"
                     ].to_list()
-                    # indicator_df = indicator_df.append(
-                    #     temp_indicator, ignore_index=True
-                    # )
                     indicator_df = pd.concat(
                         [indicator_df, temp_indicator], axis=0, ignore_index=True
                     )
@@ -162,9 +151,6 @@ class FeatureEngineer:
             )
         df = df.sort_values(by=["date", "tic"])
         return df
-        # df = data.set_index(['date','tic']).sort_index()
-        # df = df.join(df.groupby(level=0, group_keys=False).apply(lambda x, y: Sdf.retype(x)[y], y=self.tech_indicator_list))
-        # return df.reset_index()
 
     def add_user_defined_feature(self, data):
         """
@@ -174,10 +160,6 @@ class FeatureEngineer:
         """
         df = data.copy()
         df["daily_return"] = df.close.pct_change(1)
-        # df['return_lag_1']=df.close.pct_change(2)
-        # df['return_lag_2']=df.close.pct_change(3)
-        # df['return_lag_3']=df.close.pct_change(4)
-        # df['return_lag_4']=df.close.pct_change(5)
         return df
 
     def add_vix(self, data):
@@ -224,7 +206,8 @@ class FeatureEngineer:
         # turbulence_index = [0]
         count = 0
         for i in range(start, len(unique_date)):
-            current_price = df_price_pivot[df_price_pivot.index == unique_date[i]]
+            current_price = df_price_pivot[df_price_pivot.index ==
+                                           unique_date[i]]
             # use one year rolling window to calcualte covariance
             hist_price = df_price_pivot[
                 (df_price_pivot.index < unique_date[i])
@@ -232,7 +215,7 @@ class FeatureEngineer:
             ]
             # Drop tickers which has number missing values more than the "oldest" ticker
             filtered_hist_price = hist_price.iloc[
-                hist_price.isna().sum().min() :
+                hist_price.isna().sum().min():
             ].dropna(axis=1)
 
             cov_temp = filtered_hist_price.cov()
