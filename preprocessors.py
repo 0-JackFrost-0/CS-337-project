@@ -110,7 +110,7 @@ class FeatureEngineer:
         merged_closes = df.pivot_table(index="date", columns="tic", values="close")
 
         ## ADDED OG ## 
-        merged_closes = merged_closes.interpolate(method='linear', axis=1)
+        # merged_closes = merged_closes.interpolate(method='linear', axis=1)
         
         merged_closes = merged_closes.dropna(axis=1)
         tics = merged_closes.columns

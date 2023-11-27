@@ -359,7 +359,7 @@ class DRLEnsembleAgent:
         # for ensemble model, it's necessary to feed the last state
         # of the previous model to the current model as the initial state
         last_state_ensemble = []
-
+        
         ppo_sharpe_list = []
         ddpg_sharpe_list = []
         a2c_sharpe_list = []
@@ -452,6 +452,9 @@ class DRLEnsembleAgent:
                     i - self.rebalance_window - self.validation_window
                 ],
             )
+            # print(train)
+            # print(self.state_space)
+            # exit()
             self.train_env = DummyVecEnv(
                 [
                     lambda: StockTradingEnv(
@@ -495,6 +498,7 @@ class DRLEnsembleAgent:
             model_a2c = self.get_model(
                 "a2c", self.train_env, policy="MlpPolicy", model_kwargs=A2C_model_kwargs
             )
+            
             model_a2c = self.train_model(
                 model_a2c,
                 "a2c",
