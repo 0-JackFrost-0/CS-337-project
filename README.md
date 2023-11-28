@@ -2,7 +2,7 @@
 
 This repository contains the code for our CS 337 project - **Deep Ensemble Reinforcement Learning for Adaptive
 Trading**. The team members are: Shubham Hazra (210100143), Om Godage (21d100006) and 
-Vijay Balsubramaniam (21d180043). The project is inspired by [FinRL](https://github.com/AI4Finance-Foundation/FinRL).
+Vijay Balsubramaniam (21d180043). 
 The project focuses on the application of Deep Reinforcement Learning for trading and 
 explores the use of ensemble methods to improve the performance of the agent. We also 
 compare the performance of the agent with the baseline index fund and statistical algorithms
