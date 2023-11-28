@@ -5,25 +5,20 @@ import time
 
 import numpy as np
 import pandas as pd
-from stable_baselines3 import A2C
-from stable_baselines3 import DDPG
-from stable_baselines3 import PPO
-from stable_baselines3 import SAC
-from stable_baselines3 import TD3
+from stable_baselines3 import A2C, DDPG, PPO, SAC, TD3
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.noise import NormalActionNoise
-from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
+from stable_baselines3.common.noise import (NormalActionNoise,
+                                            OrnsteinUhlenbeckActionNoise)
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 import config
-
-# from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
 from env_stocktrading import StockTradingEnv
 from preprocessors import data_split
 
 MODELS = {"a2c": A2C, "ddpg": DDPG, "td3": TD3, "sac": SAC, "ppo": PPO}
 
-MODEL_KWARGS = {x: config.__dict__[f"{x.upper()}_PARAMS"] for x in MODELS.keys()}
+MODEL_KWARGS = {x: config.__dict__[f"{x.upper()}_PARAMS"]
+                for x in MODELS.keys()}
 
 NOISE = {
     "normal": NormalActionNoise,
@@ -41,11 +36,13 @@ class TensorboardCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         try:
-            self.logger.record(key="train/reward", value=self.locals["rewards"][0])
+            self.logger.record(key="train/reward",
+                               value=self.locals["rewards"][0])
 
         except BaseException as error:
             try:
-                self.logger.record(key="train/reward", value=self.locals["reward"][0])
+                self.logger.record(key="train/reward",
+                                   value=self.locals["reward"][0])
 
             except BaseException as inner_error:
                 # Handle the case where neither "rewards" nor "reward" is found
@@ -135,7 +132,8 @@ class DRLAgent:
         max_steps = len(environment.df.index.unique()) - 1
 
         for i in range(len(environment.df.index.unique())):
-            action, _states = model.predict(test_obs, deterministic=deterministic)
+            action, _states = model.predict(
+                test_obs, deterministic=deterministic)
             # account_memory = test_env.env_method(method_name="save_asset_memory")
             # actions_memory = test_env.env_method(method_name="save_action_memory")
             test_obs, rewards, dones, info = test_env.step(action)
@@ -143,8 +141,10 @@ class DRLAgent:
             if (
                 i == max_steps - 1
             ):  # more descriptive condition for early termination to clarify the logic
-                account_memory = test_env.env_method(method_name="save_asset_memory")
-                actions_memory = test_env.env_method(method_name="save_action_memory")
+                account_memory = test_env.env_method(
+                    method_name="save_asset_memory")
+                actions_memory = test_env.env_method(
+                    method_name="save_action_memory")
             # add current state to state memory
             # state_memory=test_env.env_method(method_name="save_state_memory")
 
@@ -164,7 +164,8 @@ class DRLAgent:
             model = MODELS[model_name].load(cwd)
             print("Successfully load model", cwd)
         except BaseException as error:
-            raise ValueError(f"Failed to load agent. Error: {str(error)}") from error
+            raise ValueError(
+                f"Failed to load agent. Error: {str(error)}") from error
 
         # test on the testing env
         state = environment.reset()
@@ -177,7 +178,8 @@ class DRLAgent:
 
             total_asset = (
                 environment.amount
-                + (environment.price_ary[environment.day] * environment.stocks).sum()
+                + (environment.price_ary[environment.day]
+                   * environment.stocks).sum()
             )
             episode_total_assets.append(total_asset)
             episode_return = total_asset / environment.initial_total_asset
@@ -359,7 +361,7 @@ class DRLEnsembleAgent:
         # for ensemble model, it's necessary to feed the last state
         # of the previous model to the current model as the initial state
         last_state_ensemble = []
-        
+
         ppo_sharpe_list = []
         ddpg_sharpe_list = []
         a2c_sharpe_list = []
@@ -386,7 +388,8 @@ class DRLEnsembleAgent:
             validation_start_date = self.unique_trade_date[
                 i - self.rebalance_window - self.validation_window
             ]
-            validation_end_date = self.unique_trade_date[i - self.rebalance_window]
+            validation_end_date = self.unique_trade_date[i -
+                                                         self.rebalance_window]
 
             validation_start_date_list.append(validation_start_date)
             validation_end_date_list.append(validation_end_date)
@@ -412,7 +415,7 @@ class DRLEnsembleAgent:
             start_date_index = end_date_index - 63 + 1
 
             historical_turbulence = self.df.iloc[
-                start_date_index : (end_date_index + 1), :
+                start_date_index: (end_date_index + 1), :
             ]
 
             historical_turbulence = historical_turbulence.drop_duplicates(
@@ -498,7 +501,7 @@ class DRLEnsembleAgent:
             model_a2c = self.get_model(
                 "a2c", self.train_env, policy="MlpPolicy", model_kwargs=A2C_model_kwargs
             )
-            
+
             model_a2c = self.train_model(
                 model_a2c,
                 "a2c",

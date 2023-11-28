@@ -12,13 +12,12 @@ import pyfolio
 from pyfolio import timeseries
 
 import config
-# from finrl.meta.data_processors.func import date2str
-# from finrl.meta.data_processors.func import str2date
-# from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 from yahoodownloader import YahooDownloader
+
 
 def date2str(date):
     return date.strftime("%Y-%m-%d")
+
 
 def str2date(str_dat):
     return datetime.datetime.strptime(str_dat, "%Y-%m-%d").date()
@@ -69,7 +68,8 @@ def backtest_plot(
         ticker=baseline_ticker, start=baseline_start, end=baseline_end
     )
 
-    baseline_df["date"] = pd.to_datetime(baseline_df["date"], format="%Y-%m-%d")
+    baseline_df["date"] = pd.to_datetime(
+        baseline_df["date"], format="%Y-%m-%d")
     baseline_df = pd.merge(df[["date"]], baseline_df, how="left", on="date")
     baseline_df = baseline_df.fillna(method="ffill").fillna(method="bfill")
     baseline_returns = get_daily_return(baseline_df, value_col_name="close")
@@ -231,7 +231,8 @@ def plot_result(
     # 设置每隔多少距离⼀个刻度
     plt.xticks(x[::num_days_xticks])
 
-    plt.setp(ax.get_xticklabels(), rotation=xrotation, horizontalalignment="center")
+    plt.setp(ax.get_xticklabels(), rotation=xrotation,
+             horizontalalignment="center")
 
     # 为防止x轴label重叠，自动调整label旋转角度
     if xrotation == 0:
@@ -252,7 +253,8 @@ def get_if_overlap(fig, ax):
     # 获取日期标签的边界框
     bboxes = [label.get_window_extent() for label in ax.get_xticklabels()]
     # 计算日期标签之间的距离
-    distances = [bboxes[i + 1].x0 - bboxes[i].x1 for i in range(len(bboxes) - 1)]
+    distances = [bboxes[i + 1].x0 -
+                 bboxes[i].x1 for i in range(len(bboxes) - 1)]
     # 如果有任何距离小于0，说明有重叠
     if any(distance < 0 for distance in distances):
         if_overlap = True
@@ -279,7 +281,8 @@ def plot_return(
         select_start_date: str = result[column_as_x].iloc[0]
         select_end_date: str = result[column_as_x].iloc[-1]
     # calc returns if if_need_calc_return is True, so that result stores returns
-    select_start_date_index = result[column_as_x].tolist().index(select_start_date)
+    select_start_date_index = result[column_as_x].tolist().index(
+        select_start_date)
     columns = result.columns
     columns_strtegy = []
     column_as_x_index = None
@@ -290,7 +293,8 @@ def plot_return(
         elif "Unnamed" not in col:
             columns_strtegy.append(col)
             if if_need_calc_return:
-                result[col] = result[col] / result[col][select_start_date_index] - 1
+                result[col] = result[col] / \
+                    result[col][select_start_date_index] - 1
 
     # select the result between select_start_date and select_end_date
     # if date is 2020-01-15, transfer it to 01/15/2020
