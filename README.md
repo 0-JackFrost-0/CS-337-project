@@ -21,9 +21,10 @@ pip install -r requirements.txt
 
 There are 3 main directories in the repository:
 
-1. `src`: Contains the source code for the project.
-2. `results`: Contains the results of the experiments.
-3. `plots`: Contains the plots of the results.
+1. `./`: Contains the report (report.pdf) and the requirements file.
+2. `src`: Contains the source code for the project.
+3. `results`: Contains the results of the experiments.
+4. `plots`: Contains the plots of the results.
 
 ## Running the code
 
