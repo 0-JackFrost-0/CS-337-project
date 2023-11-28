@@ -28,12 +28,12 @@ There are 3 main directories in the repository:
 ## Running the code
 
 The code files are present in the `src` directory. 
-The two main files are:
+The three main files are:
 1. `ensemble.ipynb`: Contains the code for the ensemble methods.
-2. `MPT.py`: Contains the code for the statistical algorithms.
-You can just run the cells in the notebook to reproduce the results. The results are stored
-in the `results` directory and the plots are stored in the `plots` directory.
-The file `plot.ipynb` contains the code to plot the results.
+2. `MPT.py`: Contains the code for the statistical algorithms. 
+3. `plot.ipynb`: Contains the code to plot the results.
+
+You can just run the cells in the notebook to reproduce the results. The results are stored in the `results` directory and the plots are stored in the `plots` directory.
 
 ## References
 [FinRL](https://github.com/AI4Finance-Foundation/FinRL)
